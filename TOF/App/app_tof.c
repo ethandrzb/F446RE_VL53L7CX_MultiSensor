@@ -31,6 +31,8 @@ extern "C" {
 #include "app_tof_pin_conf.h"
 #include "stm32f4xx_nucleo.h"
 
+#include "../../Drivers/ssd1306/ssd1306.h"
+
 /* Private typedef -----------------------------------------------------------*/
 
 /* Private define ------------------------------------------------------------*/
@@ -57,6 +59,7 @@ static void MX_53L7A1_MultiSensorRanging_Init(void);
 static void MX_53L7A1_MultiSensorRanging_Process(void);
 
 static void print_result(RANGING_SENSOR_Result_t *Result);
+static void display_result(uint8_t device, RANGING_SENSOR_Result_t *Result);
 static void write_lowpower_pin(uint8_t device, GPIO_PinState pin_state);
 static void reset_all_sensors(void);
 
@@ -67,7 +70,15 @@ void MX_TOF_Init(void)
   /* USER CODE END SV */
 
   /* USER CODE BEGIN TOF_Init_PreTreatment */
+	ssd1306_Init();
+	ssd1306_Fill(Black);
+	ssd1306_UpdateScreen();
 
+	ssd1306_SetCursor(0, 0);
+	ssd1306_WriteString("Initializing", Font_7x10, White);
+	ssd1306_SetCursor(0, 10);
+	ssd1306_WriteString("TOF sensors", Font_7x10, White);
+	ssd1306_UpdateScreen();
   /* USER CODE END TOF_Init_PreTreatment */
 
   /* Initialize the peripherals and the TOF components */
@@ -75,7 +86,8 @@ void MX_TOF_Init(void)
   MX_53L7A1_MultiSensorRanging_Init();
 
   /* USER CODE BEGIN TOF_Init_PostTreatment */
-
+	ssd1306_Fill(Black);
+	ssd1306_UpdateScreen();
   /* USER CODE END TOF_Init_PostTreatment */
 }
 
@@ -196,6 +208,9 @@ static void MX_53L7A1_MultiSensorRanging_Process(void)
       {
         printf("%s\n", TofDevStr[i]);
         print_result(&Result);
+
+        display_result(i, &Result);
+
         HAL_Delay(POLLING_PERIOD);
       }
     }
@@ -287,6 +302,27 @@ static void print_result(RANGING_SENSOR_Result_t *Result)
     printf(" -----------------");
   }
   printf("\n");
+}
+
+static void display_result(uint8_t device, RANGING_SENSOR_Result_t *Result)
+{
+	long tmp = 0;
+	char buffer[6];
+
+	// Average result
+	for(int i = 0; i < Result->NumberOfZones; i++)
+	{
+		tmp += Result->ZoneResult[i].Distance[0];
+	}
+	tmp /= Result->NumberOfZones;
+
+	// Display result
+	ssd1306_SetCursor((device == 0) ? 0 : 64, 0);
+	sprintf(buffer, "%4ld", tmp);
+	ssd1306_WriteString(buffer, Font_11x18, White);
+	ssd1306_UpdateScreen();
+
+	return;
 }
 
 static void write_lowpower_pin(uint8_t device, GPIO_PinState pin_state)
