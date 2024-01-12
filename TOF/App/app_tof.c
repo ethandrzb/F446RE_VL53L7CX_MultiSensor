@@ -330,8 +330,11 @@ static void display_result_cells(uint8_t device, RANGING_SENSOR_Result_t *Result
 	for(int i = 0; i < Result->NumberOfZones; i++)
 	{
 		// Fill in cell based on distance
-		uint8_t x_tmp = ((i % 4) << 4) + ((device == 0) ? 0 : 64);
-		uint8_t y_tmp = (i >> 2) << 4;
+		// << 2 multiplies by 4 to scale 0-16 range to 0-64
+		// >> 2 and % 4 operations map 1D 0-16 to 2D X and Y values 0-4
+		// 112 -  and 48 - flip axes for sensor orientation; will need to change/remove these based on orientation
+		uint8_t x_tmp = 112 - (((i >> 2) << 4) + ((device == 0) ? 64 : 0));
+		uint8_t y_tmp = 48 - ((i % 4) << 4);
 
 		display_cell(x_tmp, y_tmp, Result->ZoneResult[i].Distance[0]);
 	}
