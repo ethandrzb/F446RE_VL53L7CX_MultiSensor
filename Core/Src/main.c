@@ -93,8 +93,6 @@ int main(void)
   MX_GPIO_Init();
   MX_CAN1_Init();
   MX_I2C2_Init();
-
-  // Must be after I2C2 init for OLED display
   MX_TOF_Init();
   /* USER CODE BEGIN 2 */
   /* USER CODE END 2 */

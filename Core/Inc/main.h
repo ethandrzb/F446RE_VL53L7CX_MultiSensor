@@ -73,9 +73,6 @@ void Error_Handler(void);
 #define TOF_LPn_R_GPIO_Port GPIOA
 #define TOF_I2C_RST_R_Pin GPIO_PIN_0
 #define TOF_I2C_RST_R_GPIO_Port GPIOB
-#define TOF_INT_L_Pin GPIO_PIN_7
-#define TOF_INT_L_GPIO_Port GPIOC
-#define TOF_INT_L_EXTI_IRQn EXTI9_5_IRQn
 #define TOF_I2C_RST_L_Pin GPIO_PIN_8
 #define TOF_I2C_RST_L_GPIO_Port GPIOA
 #define TOF_LPn_L_Pin GPIO_PIN_9
@@ -86,6 +83,9 @@ void Error_Handler(void);
 #define TCK_GPIO_Port GPIOA
 #define SWO_Pin GPIO_PIN_3
 #define SWO_GPIO_Port GPIOB
+#define TOF_INT_L_Pin GPIO_PIN_7
+#define TOF_INT_L_GPIO_Port GPIOB
+#define TOF_INT_L_EXTI_IRQn EXTI9_5_IRQn
 
 /* USER CODE BEGIN Private defines */
 
