@@ -60,6 +60,8 @@ static void MX_53L7A1_MultiSensorRanging_Process(void);
 
 static void print_result(RANGING_SENSOR_Result_t *Result);
 static void display_result(uint8_t device, RANGING_SENSOR_Result_t *Result);
+static void display_result_cells(uint8_t device, RANGING_SENSOR_Result_t *Result);
+static void display_cell(uint8_t x, uint8_t y, long distance);
 static void write_lowpower_pin(uint8_t device, GPIO_PinState pin_state);
 static void reset_all_sensors(void);
 
@@ -206,11 +208,11 @@ static void MX_53L7A1_MultiSensorRanging_Process(void)
 
       if (status == BSP_ERROR_NONE)
       {
-        printf("%s\n", TofDevStr[i]);
-        print_result(&Result);
+//        printf("%s\n", TofDevStr[i]);
+//        print_result(&Result);
 
-        display_result(i, &Result);
-
+//        display_result(i, &Result);
+    	  display_result_cells(i, &Result);
         HAL_Delay(POLLING_PERIOD);
       }
     }
@@ -321,8 +323,52 @@ static void display_result(uint8_t device, RANGING_SENSOR_Result_t *Result)
 	sprintf(buffer, "%4ld", tmp);
 	ssd1306_WriteString(buffer, Font_11x18, White);
 	ssd1306_UpdateScreen();
+}
 
-	return;
+static void display_result_cells(uint8_t device, RANGING_SENSOR_Result_t *Result)
+{
+	for(int i = 0; i < Result->NumberOfZones; i++)
+	{
+		// Fill in cell based on distance
+		uint8_t x_tmp = ((i % 4) << 4) + ((device == 0) ? 0 : 64);
+		uint8_t y_tmp = (i >> 2) << 4;
+
+		display_cell(x_tmp, y_tmp, Result->ZoneResult[i].Distance[0]);
+	}
+
+	ssd1306_UpdateScreen();
+}
+
+// Helper function for display_result_pixels that fills in a square on the display based on the distance provided
+// x and y are the coordinates of the top left corner of the cell
+// distance is the distance in millimeters measured by that zone of the TOF sensor
+static void display_cell(uint8_t x, uint8_t y, long distance)
+{
+	// Divide distance by 128
+	uint8_t pixelsToFill = 2048 - (distance / 2);
+
+	if(pixelsToFill < 0)
+	{
+		pixelsToFill = 0;
+	}
+
+	// Clear old cell
+	ssd1306_FillRectangle(x, y, x + 15, y + 15, Black);
+
+	for(uint8_t j = y; j < y + 16; j++)
+	{
+		for(uint8_t i = x; i < x + 16; i++)
+		{
+			ssd1306_DrawPixel(i, j, White);
+
+			pixelsToFill--;
+
+			if(pixelsToFill <= 0)
+			{
+				return;
+			}
+		}
+	}
 }
 
 static void write_lowpower_pin(uint8_t device, GPIO_PinState pin_state)
