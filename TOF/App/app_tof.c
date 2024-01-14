@@ -352,13 +352,8 @@ static void display_result_cells(uint8_t device, RANGING_SENSOR_Result_t *Result
 // distance is the distance in millimeters measured by that zone of the TOF sensor
 static void display_cell(uint8_t x, uint8_t y, long distance)
 {
-	// Divide distance by 128
-	uint8_t pixelsToFill = 2048 - (distance / 2);
-
-	if(pixelsToFill < 0)
-	{
-		pixelsToFill = 0;
-	}
+	// Scale and offset values to expected range
+	int16_t pixelsToFill = 256 - (distance >> 3);
 
 	// Clear old cell
 	ssd1306_FillRectangle(x, y, x + 15, y + 15, Black);
@@ -367,14 +362,14 @@ static void display_cell(uint8_t x, uint8_t y, long distance)
 	{
 		for(uint8_t i = x; i < x + 16; i++)
 		{
-			ssd1306_DrawPixel(i, j, White);
-
-			pixelsToFill--;
-
 			if(pixelsToFill <= 0)
 			{
 				return;
 			}
+
+			pixelsToFill--;
+
+			ssd1306_DrawPixel(i, j, White);
 		}
 	}
 }
