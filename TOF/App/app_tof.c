@@ -338,7 +338,10 @@ static void display_result_cells(uint8_t device, RANGING_SENSOR_Result_t *Result
 		uint8_t x_tmp = 112 - (((i >> 2) << 4) + ((device == 0) ? 64 : 0));
 		uint8_t y_tmp = 48 - ((i % 4) << 4);
 
-		display_cell(x_tmp, y_tmp, Result->ZoneResult[i].Distance[0]);
+		if(Result->ZoneResult[i].Status[0] == 0)
+		{
+			display_cell(x_tmp, y_tmp, Result->ZoneResult[i].Distance[0]);
+		}
 	}
 
 	ssd1306_UpdateScreen();
