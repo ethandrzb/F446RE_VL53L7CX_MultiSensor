@@ -159,6 +159,7 @@ int32_t VL53L7A1_RANGING_SENSOR_GetAddress(uint32_t Instance, uint32_t *pAddress
 int32_t VL53L7A1_RANGING_SENSOR_SetPowerMode(uint32_t Instance, uint32_t PowerMode);
 int32_t VL53L7A1_RANGING_SENSOR_GetPowerMode(uint32_t Instance, uint32_t *pPowerMode);
 int32_t VL53L7A1_RANGING_SENSOR_XTalkCalibration(uint32_t Instance, uint16_t Reflectance, uint16_t Distance);
+int32_t VL53L7CX_SetSharpenerPercent(uint32_t instance, uint8_t percent);
 /**
   * @}
   */

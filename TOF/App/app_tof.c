@@ -169,6 +169,8 @@ static void MX_53L7A1_MultiSensorRanging_Init(void)
     /* check the communication with the device reading the ID */
     VL53L7A1_RANGING_SENSOR_ReadID(device, &id);
     printf("ToF sensor %d - ID: %04lX\n", device, (unsigned long)id);
+
+//    VL53L7CX_SetSharpenerPercent(device, 50);
   }
 }
 
