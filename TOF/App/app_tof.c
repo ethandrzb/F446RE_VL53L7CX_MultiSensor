@@ -59,6 +59,7 @@ static void MX_53L7A1_MultiSensorRanging_Init(void);
 static void MX_53L7A1_MultiSensorRanging_Process(void);
 
 static void print_result(RANGING_SENSOR_Result_t *Result);
+static void obstacle_avoidance(uint8_t device, RANGING_SENSOR_Result_t *Result);
 static void display_result(uint8_t device, RANGING_SENSOR_Result_t *Result);
 static void display_result_cells(uint8_t device, RANGING_SENSOR_Result_t *Result);
 static void display_cell(uint8_t x, uint8_t y, long distance);
@@ -215,6 +216,7 @@ static void MX_53L7A1_MultiSensorRanging_Process(void)
 
 //        display_result(i, &Result);
     	  display_result_cells(i, &Result);
+//    	  obstacle_avoidance(i, &Result);
         HAL_Delay(POLLING_PERIOD);
       }
     }
@@ -358,6 +360,7 @@ static void display_cell(uint8_t x, uint8_t y, long distance)
 	// Clear old cell
 	ssd1306_FillRectangle(x, y, x + 15, y + 15, Black);
 
+	// Fill pixels from top left to bottom right of current cell
 	for(uint8_t j = y; j < y + 16; j++)
 	{
 		for(uint8_t i = x; i < x + 16; i++)
@@ -372,6 +375,33 @@ static void display_cell(uint8_t x, uint8_t y, long distance)
 			ssd1306_DrawPixel(i, j, White);
 		}
 	}
+}
+
+static void obstacle_avoidance(uint8_t device, RANGING_SENSOR_Result_t *Result)
+{
+	static uint16_t leftAverage = 0;
+	static uint16_t rightAverage = 0;
+
+	long tmp = 0;
+
+	// Average result
+	for(int i = 0; i < Result->NumberOfZones; i++)
+	{
+		tmp += Result->ZoneResult[i].Distance[0];
+	}
+	tmp /= Result->NumberOfZones;
+
+	switch(device)
+	{
+		case 0:
+			leftAverage = tmp;
+			break;
+		case 1:
+			rightAverage = tmp;
+			break;
+	}
+
+	printf("%d %d (%d)\n", leftAverage, rightAverage, leftAverage - rightAverage);
 }
 
 static void write_lowpower_pin(uint8_t device, GPIO_PinState pin_state)
