@@ -65,6 +65,7 @@ static void display_result_cells(uint8_t device, RANGING_SENSOR_Result_t *Result
 static void display_cell(uint8_t x, uint8_t y, long distance);
 static void write_lowpower_pin(uint8_t device, GPIO_PinState pin_state);
 static void reset_all_sensors(void);
+uint32_t degreesToPWM(float degrees);
 
 void MX_TOF_Init(void)
 {
@@ -215,8 +216,8 @@ static void MX_53L7A1_MultiSensorRanging_Process(void)
 //        print_result(&Result);
 
 //        display_result(i, &Result);
-    	  display_result_cells(i, &Result);
-//    	  obstacle_avoidance(i, &Result);
+//    	  display_result_cells(i, &Result);
+    	  obstacle_avoidance(i, &Result);
         HAL_Delay(POLLING_PERIOD);
       }
     }
@@ -381,6 +382,8 @@ static void obstacle_avoidance(uint8_t device, RANGING_SENSOR_Result_t *Result)
 {
 	static uint16_t leftAverage = 0;
 	static uint16_t rightAverage = 0;
+	float sum = 0;
+	float rightFraction = 0.0f;
 
 	long tmp = 0;
 
@@ -401,7 +404,22 @@ static void obstacle_avoidance(uint8_t device, RANGING_SENSOR_Result_t *Result)
 			break;
 	}
 
-	printf("%d %d (%d)\n", leftAverage, rightAverage, leftAverage - rightAverage);
+	// Sum averages
+	sum = leftAverage + rightAverage;
+	// Compute percentage of right side
+	rightFraction = ((float) rightAverage) / sum;
+
+	// Map percentage to turning angle and assign to servo
+	// newValue = (-1 if flipped, 1 if not) * oldValue * (newRange / oldRange) + newRangeOffset
+	// Normally I would divide by the old range (100), but I need to convert the fraction to a percentage
+	// 50% is already 135 degrees, so we don't need an offset
+	TIM3->CCR1 = degreesToPWM(rightFraction * 270.0f);
+
+	printf("%d percent (%ld)\n", (int)(rightFraction * 100), TIM3->CCR1);
+
+	//TODO: Add safeguards against weird numerical shit
+
+//	printf("%d %d\n", leftAverage, rightAverage);
 }
 
 static void write_lowpower_pin(uint8_t device, GPIO_PinState pin_state)
@@ -446,6 +464,22 @@ static void reset_all_sensors(void)
   HAL_GPIO_WritePin(VL53L7A1_LPn_L_PORT, VL53L7A1_LPn_L_PIN, GPIO_PIN_SET);
   HAL_GPIO_WritePin(VL53L7A1_LPn_R_PORT, VL53L7A1_LPn_R_PIN, GPIO_PIN_SET);
   HAL_Delay(2);
+}
+
+uint32_t degreesToPWM(float degrees)
+{
+	// Validate range
+	if(degrees < 0 || degrees > 270)
+	{
+		// Home motor if angle is out of range
+		degrees = 135;
+		// Can use this as error value b/c pulse will never be this thin
+		// return 0;
+	}
+
+	// newValue = (-1 if flipped, 1 if not) * oldValue * (newRange / oldRange) + newRangeOffset
+
+	return ((float) degrees) * (2000.0f / 270.0f) + 500;
 }
 
 #ifdef __cplusplus
