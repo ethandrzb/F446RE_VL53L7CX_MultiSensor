@@ -46,6 +46,7 @@ static RANGING_SENSOR_Result_t Result;
 static int32_t status = 0;
 static uint8_t ToF_Present[RANGING_SENSOR_INSTANCES_NBR] = {0};
 volatile uint8_t ToF_EventDetected = 0;
+static uint32_t targetTurningAnglePWM = 1500;
 
 static const char *TofDevStr[] =
 {
@@ -66,6 +67,21 @@ static void display_cell(uint8_t x, uint8_t y, long distance);
 static void write_lowpower_pin(uint8_t device, GPIO_PinState pin_state);
 static void reset_all_sensors(void);
 uint32_t degreesToPWM(float degrees);
+
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef* htim)
+{
+	if(htim->Instance == TIM6)
+	{
+		if(TIM3->CCR1 > targetTurningAnglePWM)
+		{
+			TIM3->CCR1--;
+		}
+		else if(TIM3->CCR1 < targetTurningAnglePWM)
+		{
+			TIM3->CCR1++;
+		}
+	}
+}
 
 void MX_TOF_Init(void)
 {
@@ -413,9 +429,10 @@ static void obstacle_avoidance(uint8_t device, RANGING_SENSOR_Result_t *Result)
 	// newValue = (-1 if flipped, 1 if not) * oldValue * (newRange / oldRange) + newRangeOffset
 	// Normally I would divide by the old range (100), but I need to convert the fraction to a percentage
 	// 50% is already 135 degrees, so we don't need an offset
-	TIM3->CCR1 = degreesToPWM(rightFraction * 270.0f);
+//	TIM3->CCR1 = degreesToPWM(rightFraction * 270.0f);
+	targetTurningAnglePWM = degreesToPWM(rightFraction * 270.0f);
 
-	printf("%d percent (%ld)\n", (int)(rightFraction * 100), TIM3->CCR1);
+	printf("%d percent (%ld PWM) %ld target\n", (int)(rightFraction * 100), TIM3->CCR1, targetTurningAnglePWM);
 
 	//TODO: Add safeguards against weird numerical shit
 
