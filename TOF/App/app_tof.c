@@ -430,7 +430,10 @@ static void obstacle_avoidance(uint8_t device, RANGING_SENSOR_Result_t *Result)
 	// Normally I would divide by the old range (100), but I need to convert the fraction to a percentage
 	// 50% is already 135 degrees, so we don't need an offset
 //	TIM3->CCR1 = degreesToPWM(rightFraction * 270.0f);
-	targetTurningAnglePWM = degreesToPWM(rightFraction * 270.0f);
+	// Turn towards obstacle
+//	targetTurningAnglePWM = degreesToPWM(rightFraction * 270.0f);
+	// Turn away from obstacle
+	targetTurningAnglePWM = degreesToPWM((1.0f - rightFraction) * 270.0f);
 
 	printf("%d percent (%ld PWM) %ld target\n", (int)(rightFraction * 100), TIM3->CCR1, targetTurningAnglePWM);
 
