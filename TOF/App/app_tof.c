@@ -46,7 +46,7 @@ static RANGING_SENSOR_Result_t Result;
 static int32_t status = 0;
 static uint8_t ToF_Present[RANGING_SENSOR_INSTANCES_NBR] = {0};
 volatile uint8_t ToF_EventDetected = 0;
-static uint32_t targetTurningAnglePWM = 1500;
+extern uint32_t targetTurningAnglePWM;
 extern int8_t turningAngleOffset;
 
 static const char *TofDevStr[] =
@@ -68,21 +68,6 @@ static void display_cell(uint8_t x, uint8_t y, long distance);
 static void write_lowpower_pin(uint8_t device, GPIO_PinState pin_state);
 static void reset_all_sensors(void);
 uint32_t degreesToPWM(float degrees);
-
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef* htim)
-{
-	if(htim->Instance == TIM6)
-	{
-		if(TIM3->CCR1 > targetTurningAnglePWM)
-		{
-			TIM3->CCR1--;
-		}
-		else if(TIM3->CCR1 < targetTurningAnglePWM)
-		{
-			TIM3->CCR1++;
-		}
-	}
-}
 
 void MX_TOF_Init(void)
 {

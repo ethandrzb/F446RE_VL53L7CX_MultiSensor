@@ -49,6 +49,7 @@ I2C_HandleTypeDef hi2c2;
 
 TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim6;
+TIM_HandleTypeDef htim7;
 
 UART_HandleTypeDef huart3;
 
@@ -68,6 +69,9 @@ uint8_t UART_Rx_Buffer[UART_RX_BUFFER_SIZE];
 uint8_t UARTResponseString[UART_RESPONSE_LENGTH];
 
 int8_t turningAngleOffset = 0;
+uint32_t targetTurningAnglePWM = 1500;
+
+uint8_t expectedHeartbeatData = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -78,12 +82,40 @@ static void MX_I2C2_Init(void);
 static void MX_TIM3_Init(void);
 static void MX_TIM6_Init(void);
 static void MX_USART3_UART_Init(void);
+static void MX_TIM7_Init(void);
 /* USER CODE BEGIN PFP */
 bool stringToCANMessage(uint8_t *buffer, uint16_t size);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef* htim)
+{
+	if(htim->Instance == TIM6)
+	{
+		if(TIM3->CCR1 > targetTurningAnglePWM)
+		{
+			TIM3->CCR1--;
+		}
+		else if(TIM3->CCR1 < targetTurningAnglePWM)
+		{
+			TIM3->CCR1++;
+		}
+	}
+	else if(htim->Instance == TIM7)
+	{
+		// Store expected response for comparison in RxFifo0Callback
+		// Expected value should be the CAN ID of the node you want to check
+		expectedHeartbeatData = (expectedHeartbeatData < 0x20) ? expectedHeartbeatData + 0x10 : 0x10;
+
+		txHeader.StdId = expectedHeartbeatData;
+		txHeader.DLC = 1;
+		txHeader.RTR = CAN_RTR_REMOTE;
+
+		HAL_CAN_AddTxMessage(&hcan1, &txHeader, txData, &txMailbox);
+	}
+}
+
 void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
 {
 	HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_SET);
@@ -197,6 +229,7 @@ int main(void)
   MX_TIM3_Init();
   MX_TIM6_Init();
   MX_USART3_UART_Init();
+  MX_TIM7_Init();
   MX_TOF_Init();
   /* USER CODE BEGIN 2 */
 
@@ -205,6 +238,8 @@ int main(void)
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
 
   HAL_TIM_Base_Start_IT(&htim6);
+
+  HAL_TIM_Base_Start_IT(&htim7);
 
   HAL_CAN_Start(&hcan1);
   HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING);
@@ -434,6 +469,44 @@ static void MX_TIM6_Init(void)
   /* USER CODE BEGIN TIM6_Init 2 */
 
   /* USER CODE END TIM6_Init 2 */
+
+}
+
+/**
+  * @brief TIM7 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM7_Init(void)
+{
+
+  /* USER CODE BEGIN TIM7_Init 0 */
+
+  /* USER CODE END TIM7_Init 0 */
+
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM7_Init 1 */
+
+  /* USER CODE END TIM7_Init 1 */
+  htim7.Instance = TIM7;
+  htim7.Init.Prescaler = 9000-1;
+  htim7.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim7.Init.Period = 5000-1;
+  htim7.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim7) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim7, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM7_Init 2 */
+
+  /* USER CODE END TIM7_Init 2 */
 
 }
 
