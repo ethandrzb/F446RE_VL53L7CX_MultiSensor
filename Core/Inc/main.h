@@ -73,6 +73,8 @@ void Error_Handler(void);
 #define USART_RX_GPIO_Port GPIOA
 #define TOF_LPn_R_Pin GPIO_PIN_4
 #define TOF_LPn_R_GPIO_Port GPIOA
+#define LED2_Pin GPIO_PIN_5
+#define LED2_GPIO_Port GPIOA
 #define TOF_I2C_RST_R_Pin GPIO_PIN_0
 #define TOF_I2C_RST_R_GPIO_Port GPIOB
 #define TOF_I2C_RST_L_Pin GPIO_PIN_8

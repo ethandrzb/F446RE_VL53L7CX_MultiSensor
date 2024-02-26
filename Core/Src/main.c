@@ -19,6 +19,9 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "app_tof.h"
+#include <stdio.h>
+#include <string.h>
+#include <stdbool.h>
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -48,8 +51,22 @@ I2C_HandleTypeDef hi2c2;
 TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim6;
 
-/* USER CODE BEGIN PV */
+UART_HandleTypeDef huart3;
 
+/* USER CODE BEGIN PV */
+CAN_TxHeaderTypeDef txHeader;
+CAN_RxHeaderTypeDef rxHeader;
+
+uint8_t txData[8];
+uint8_t rxData[8];
+
+uint32_t txMailbox;
+
+#define UART_RX_BUFFER_SIZE 20
+uint8_t UART_Rx_Buffer[UART_RX_BUFFER_SIZE];
+
+#define UART_RESPONSE_LENGTH 20
+uint8_t UARTResponseString[UART_RESPONSE_LENGTH];
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -59,13 +76,86 @@ static void MX_CAN1_Init(void);
 static void MX_I2C2_Init(void);
 static void MX_TIM3_Init(void);
 static void MX_TIM6_Init(void);
+static void MX_USART3_UART_Init(void);
 /* USER CODE BEGIN PFP */
-
+bool stringToCANMessage(uint8_t *buffer, uint16_t size);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
+{
+//	HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_SET);
+	HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
+	// Toggle LED if conversion and transmission was successful
+	if(stringToCANMessage(UART_Rx_Buffer, Size))
+	{
+//		HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
+		strcpy((char *) UARTResponseString, "OK\n");
+	}
+	else
+	{
+		strcpy((char *) UARTResponseString, "FAILED\n");
+	}
 
+//	strcpy((char *) UARTResponseString, "OK\n");
+
+//	HAL_UART_Transmit_IT(huart, UART_Rx_Buffer, Size);
+	HAL_UART_Transmit_IT(huart, UARTResponseString, strlen((char *) UARTResponseString));
+}
+
+void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
+{
+//	HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_RESET);
+
+	HAL_UARTEx_ReceiveToIdle_IT(huart, UART_Rx_Buffer, UART_RX_BUFFER_SIZE);
+}
+
+bool stringToCANMessage(uint8_t *buffer, uint16_t size)
+{
+	if(strncmp((char *) buffer, (char *) "SET", 3) == 0)
+	{
+		unsigned int tmpID = 0;
+		unsigned int tmpAngle = 0;
+
+		if(sscanf((char *) buffer, "SET %X %u", &tmpID, &tmpAngle) != 2)
+		{
+			return false;
+		}
+
+		txData[0] = tmpAngle >> 8;
+		txData[1] = tmpAngle & 0x00FF;
+
+		txHeader.StdId = tmpID;
+		txHeader.RTR = CAN_RTR_DATA;
+		txHeader.DLC = 2;
+
+//		HAL_CAN_AddTxMessage(&hcan1, &txHeader, txData, &txMailbox);
+
+		return true;
+	}
+	else if(strncmp((char *) buffer, (char *) "WAVE", 4) == 0)
+	{
+		int8_t tmpSpeed = 0;
+
+		if(sscanf((char *) buffer, "WAVE %hhd", &tmpSpeed) != 1)
+		{
+			return false;
+		}
+
+		txData[0] = tmpSpeed;
+
+		txHeader.StdId = 0xFF;
+		txHeader.RTR = CAN_RTR_DATA;
+		txHeader.DLC = 1;
+
+//		HAL_CAN_AddTxMessage(&hcan1, &txHeader, txData, &txMailbox);
+
+		return true;
+	}
+
+	return false;
+}
 /* USER CODE END 0 */
 
 /**
@@ -100,6 +190,7 @@ int main(void)
   MX_I2C2_Init();
   MX_TIM3_Init();
   MX_TIM6_Init();
+  MX_USART3_UART_Init();
   MX_TOF_Init();
   /* USER CODE BEGIN 2 */
 
@@ -108,6 +199,12 @@ int main(void)
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
 
   HAL_TIM_Base_Start_IT(&htim6);
+
+  HAL_CAN_Start(&hcan1);
+  HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING);
+
+  // Start UART receive interrupt cycle
+  HAL_UARTEx_ReceiveToIdle_IT(&huart3, UART_Rx_Buffer, UART_RX_BUFFER_SIZE);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -335,6 +432,39 @@ static void MX_TIM6_Init(void)
 }
 
 /**
+  * @brief USART3 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_USART3_UART_Init(void)
+{
+
+  /* USER CODE BEGIN USART3_Init 0 */
+
+  /* USER CODE END USART3_Init 0 */
+
+  /* USER CODE BEGIN USART3_Init 1 */
+
+  /* USER CODE END USART3_Init 1 */
+  huart3.Instance = USART3;
+  huart3.Init.BaudRate = 115200;
+  huart3.Init.WordLength = UART_WORDLENGTH_8B;
+  huart3.Init.StopBits = UART_STOPBITS_1;
+  huart3.Init.Parity = UART_PARITY_NONE;
+  huart3.Init.Mode = UART_MODE_TX_RX;
+  huart3.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart3.Init.OverSampling = UART_OVERSAMPLING_16;
+  if (HAL_UART_Init(&huart3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USART3_Init 2 */
+
+  /* USER CODE END USART3_Init 2 */
+
+}
+
+/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -354,7 +484,8 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(PWR_EN_L_GPIO_Port, PWR_EN_L_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, TOF_PWN_EN_R_Pin|TOF_LPn_R_Pin|TOF_I2C_RST_L_Pin|TOF_LPn_L_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, TOF_PWN_EN_R_Pin|TOF_LPn_R_Pin|LED2_Pin|TOF_I2C_RST_L_Pin
+                          |TOF_LPn_L_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(TOF_I2C_RST_R_GPIO_Port, TOF_I2C_RST_R_Pin, GPIO_PIN_RESET);
@@ -372,8 +503,10 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(TOF_INT_R_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : TOF_PWN_EN_R_Pin TOF_LPn_R_Pin TOF_I2C_RST_L_Pin TOF_LPn_L_Pin */
-  GPIO_InitStruct.Pin = TOF_PWN_EN_R_Pin|TOF_LPn_R_Pin|TOF_I2C_RST_L_Pin|TOF_LPn_L_Pin;
+  /*Configure GPIO pins : TOF_PWN_EN_R_Pin TOF_LPn_R_Pin LED2_Pin TOF_I2C_RST_L_Pin
+                           TOF_LPn_L_Pin */
+  GPIO_InitStruct.Pin = TOF_PWN_EN_R_Pin|TOF_LPn_R_Pin|LED2_Pin|TOF_I2C_RST_L_Pin
+                          |TOF_LPn_L_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
