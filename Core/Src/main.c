@@ -19,13 +19,12 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "app_tof.h"
-#include <stdio.h>
-#include <string.h>
-#include <stdbool.h>
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include <stdio.h>
+#include <string.h>
+#include <stdbool.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -130,7 +129,7 @@ bool stringToCANMessage(uint8_t *buffer, uint16_t size)
 		txHeader.RTR = CAN_RTR_DATA;
 		txHeader.DLC = 2;
 
-//		HAL_CAN_AddTxMessage(&hcan1, &txHeader, txData, &txMailbox);
+		HAL_CAN_AddTxMessage(&hcan1, &txHeader, txData, &txMailbox);
 
 		return true;
 	}
@@ -149,7 +148,7 @@ bool stringToCANMessage(uint8_t *buffer, uint16_t size)
 		txHeader.RTR = CAN_RTR_DATA;
 		txHeader.DLC = 1;
 
-//		HAL_CAN_AddTxMessage(&hcan1, &txHeader, txData, &txMailbox);
+		HAL_CAN_AddTxMessage(&hcan1, &txHeader, txData, &txMailbox);
 
 		return true;
 	}
@@ -289,11 +288,11 @@ static void MX_CAN1_Init(void)
 
   /* USER CODE END CAN1_Init 1 */
   hcan1.Instance = CAN1;
-  hcan1.Init.Prescaler = 16;
+  hcan1.Init.Prescaler = 72;
   hcan1.Init.Mode = CAN_MODE_NORMAL;
   hcan1.Init.SyncJumpWidth = CAN_SJW_1TQ;
-  hcan1.Init.TimeSeg1 = CAN_BS1_1TQ;
-  hcan1.Init.TimeSeg2 = CAN_BS2_1TQ;
+  hcan1.Init.TimeSeg1 = CAN_BS1_2TQ;
+  hcan1.Init.TimeSeg2 = CAN_BS2_2TQ;
   hcan1.Init.TimeTriggeredMode = DISABLE;
   hcan1.Init.AutoBusOff = DISABLE;
   hcan1.Init.AutoWakeUp = DISABLE;
