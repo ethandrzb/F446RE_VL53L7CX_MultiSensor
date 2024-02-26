@@ -66,6 +66,8 @@ uint8_t UART_Rx_Buffer[UART_RX_BUFFER_SIZE];
 
 #define UART_RESPONSE_LENGTH 20
 uint8_t UARTResponseString[UART_RESPONSE_LENGTH];
+
+int8_t turningAngleOffset = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -84,12 +86,11 @@ bool stringToCANMessage(uint8_t *buffer, uint16_t size);
 /* USER CODE BEGIN 0 */
 void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
 {
-//	HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_SET);
-	HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
+	HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_SET);
+
 	// Toggle LED if conversion and transmission was successful
 	if(stringToCANMessage(UART_Rx_Buffer, Size))
 	{
-//		HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
 		strcpy((char *) UARTResponseString, "OK\n");
 	}
 	else
@@ -97,15 +98,12 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
 		strcpy((char *) UARTResponseString, "FAILED\n");
 	}
 
-//	strcpy((char *) UARTResponseString, "OK\n");
-
-//	HAL_UART_Transmit_IT(huart, UART_Rx_Buffer, Size);
 	HAL_UART_Transmit_IT(huart, UARTResponseString, strlen((char *) UARTResponseString));
 }
 
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 {
-//	HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_RESET);
 
 	HAL_UARTEx_ReceiveToIdle_IT(huart, UART_Rx_Buffer, UART_RX_BUFFER_SIZE);
 }
@@ -135,11 +133,20 @@ bool stringToCANMessage(uint8_t *buffer, uint16_t size)
 	}
 	else if(strncmp((char *) buffer, (char *) "WAVE", 4) == 0)
 	{
-		int8_t tmpSpeed = 0;
+		int tmpSpeed = 0;
+		int tmpTurningAngleOffset = 0;
 
-		if(sscanf((char *) buffer, "WAVE %hhd", &tmpSpeed) != 1)
+		uint8_t numParamsReceived = sscanf((char *) buffer, "WAVE %d %d", &tmpSpeed, &tmpTurningAngleOffset);
+
+		if(numParamsReceived != 1 && numParamsReceived != 2)
 		{
 			return false;
+		}
+
+		if(numParamsReceived == 2)
+		{
+			// Update turning angle
+			turningAngleOffset = tmpTurningAngleOffset;
 		}
 
 		txData[0] = tmpSpeed;

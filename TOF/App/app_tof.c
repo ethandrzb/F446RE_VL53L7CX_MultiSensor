@@ -47,6 +47,7 @@ static int32_t status = 0;
 static uint8_t ToF_Present[RANGING_SENSOR_INSTANCES_NBR] = {0};
 volatile uint8_t ToF_EventDetected = 0;
 static uint32_t targetTurningAnglePWM = 1500;
+extern int8_t turningAngleOffset;
 
 static const char *TofDevStr[] =
 {
@@ -431,11 +432,11 @@ static void obstacle_avoidance(uint8_t device, RANGING_SENSOR_Result_t *Result)
 	// 50% is already 135 degrees, so we don't need an offset
 //	TIM3->CCR1 = degreesToPWM(rightFraction * 270.0f);
 	// Turn towards obstacle
-//	targetTurningAnglePWM = degreesToPWM(rightFraction * 270.0f);
+//	targetTurningAnglePWM = degreesToPWM(turningAngleOffset + rightFraction * 270.0f);
 	// Turn away from obstacle
-	targetTurningAnglePWM = degreesToPWM((1.0f - rightFraction) * 270.0f);
+	targetTurningAnglePWM = degreesToPWM(turningAngleOffset + (1.0f - rightFraction) * 270.0f);
 
-	printf("%d percent (%ld PWM) %ld target\n", (int)(rightFraction * 100), TIM3->CCR1, targetTurningAnglePWM);
+//	printf("%d percent (%ld PWM) %ld target\n", (int)(rightFraction * 100), TIM3->CCR1, targetTurningAnglePWM);
 
 	//TODO: Add safeguards against weird numerical shit
 
