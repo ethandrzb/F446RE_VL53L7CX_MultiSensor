@@ -116,11 +116,24 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef* htim)
 	}
 }
 
+void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
+{
+	HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0, &rxHeader, rxData);
+
+	// Check header length
+	// Will likely need to be converted to a switch statement as more commands are implemented
+	if((rxHeader.DLC == 1) && (rxData[0] == expectedHeartbeatData))
+	{
+		// Heart beat received if data matches expected value
+//		HAL_GPIO_WritePin(CAN_HEARTBEAT_LED_GPIO_Port, CAN_HEARTBEAT_LED_Pin, GPIO_PIN_RESET);
+		HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
+	}
+}
+
 void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
 {
 	HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_SET);
 
-	// Toggle LED if conversion and transmission was successful
 	if(stringToCANMessage(UART_Rx_Buffer, Size))
 	{
 		strcpy((char *) UARTResponseString, "OK\n");
@@ -346,7 +359,22 @@ static void MX_CAN1_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN CAN1_Init 2 */
+  CAN_FilterTypeDef canFilterConfig;
 
+  canFilterConfig.FilterActivation = CAN_FILTER_ENABLE;
+  canFilterConfig.FilterBank = 0; // 18
+  canFilterConfig.FilterFIFOAssignment = CAN_FilterFIFO0;
+
+  canFilterConfig.FilterIdHigh = 0x020 << 5;	// Can be any value if FilterMaskIDHigh is 0
+  canFilterConfig.FilterIdLow = 0;
+  //  canFilterConfig.FilterMaskIdHigh = 0x7FC << 5;	// Filter by ID, ignoring 2 LSBs
+  canFilterConfig.FilterMaskIdHigh = 0x000 << 5;	// Allow all IDs through filter (i.e., don't check any ID bits)
+  canFilterConfig.FilterMaskIdLow = 0x0000;
+  canFilterConfig.FilterMode = CAN_FILTERMODE_IDMASK;
+  canFilterConfig.FilterScale = CAN_FILTERSCALE_32BIT;
+  canFilterConfig.SlaveStartFilterBank = 20;
+
+  HAL_CAN_ConfigFilter(&hcan1, &canFilterConfig);
   /* USER CODE END CAN1_Init 2 */
 
 }
