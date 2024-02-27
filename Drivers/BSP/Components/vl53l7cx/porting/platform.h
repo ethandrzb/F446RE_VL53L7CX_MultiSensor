@@ -47,7 +47,7 @@ typedef struct
  * zone means a lower RAM usage).
  */
 #ifndef VL53L7CX_NB_TARGET_PER_ZONE
-#define 	VL53L7CX_NB_TARGET_PER_ZONE		(1U)
+#define 	VL53L7CX_NB_TARGET_PER_ZONE		(2U)
 #endif
 /*
  * @brief All macro below are used to configure the sensor output. User can

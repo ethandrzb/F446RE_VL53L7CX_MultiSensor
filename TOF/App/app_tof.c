@@ -31,6 +31,8 @@ extern "C" {
 #include "app_tof_pin_conf.h"
 #include "stm32f4xx_nucleo.h"
 
+#include "../../Drivers/ssd1306/ssd1306.h"
+
 /* Private typedef -----------------------------------------------------------*/
 
 /* Private define ------------------------------------------------------------*/
@@ -44,6 +46,8 @@ static RANGING_SENSOR_Result_t Result;
 static int32_t status = 0;
 static uint8_t ToF_Present[RANGING_SENSOR_INSTANCES_NBR] = {0};
 volatile uint8_t ToF_EventDetected = 0;
+extern uint32_t targetTurningAnglePWM;
+extern int8_t turningAngleOffset;
 
 static const char *TofDevStr[] =
 {
@@ -57,8 +61,13 @@ static void MX_53L7A1_MultiSensorRanging_Init(void);
 static void MX_53L7A1_MultiSensorRanging_Process(void);
 
 static void print_result(RANGING_SENSOR_Result_t *Result);
+static void obstacle_avoidance(uint8_t device, RANGING_SENSOR_Result_t *Result);
+static void display_result(uint8_t device, RANGING_SENSOR_Result_t *Result);
+static void display_result_cells(uint8_t device, RANGING_SENSOR_Result_t *Result);
+static void display_cell(uint8_t x, uint8_t y, long distance);
 static void write_lowpower_pin(uint8_t device, GPIO_PinState pin_state);
 static void reset_all_sensors(void);
+uint32_t degreesToPWM(float degrees);
 
 void MX_TOF_Init(void)
 {
@@ -67,7 +76,15 @@ void MX_TOF_Init(void)
   /* USER CODE END SV */
 
   /* USER CODE BEGIN TOF_Init_PreTreatment */
+	ssd1306_Init();
+	ssd1306_Fill(Black);
+	ssd1306_UpdateScreen();
 
+	ssd1306_SetCursor(0, 0);
+	ssd1306_WriteString("Initializing", Font_7x10, White);
+	ssd1306_SetCursor(0, 10);
+	ssd1306_WriteString("TOF sensors", Font_7x10, White);
+	ssd1306_UpdateScreen();
   /* USER CODE END TOF_Init_PreTreatment */
 
   /* Initialize the peripherals and the TOF components */
@@ -75,7 +92,8 @@ void MX_TOF_Init(void)
   MX_53L7A1_MultiSensorRanging_Init();
 
   /* USER CODE BEGIN TOF_Init_PostTreatment */
-
+	ssd1306_Fill(Black);
+	ssd1306_UpdateScreen();
   /* USER CODE END TOF_Init_PostTreatment */
 }
 
@@ -155,6 +173,8 @@ static void MX_53L7A1_MultiSensorRanging_Init(void)
     /* check the communication with the device reading the ID */
     VL53L7A1_RANGING_SENSOR_ReadID(device, &id);
     printf("ToF sensor %d - ID: %04lX\n", device, (unsigned long)id);
+
+//    VL53L7CX_SetSharpenerPercent(device, 50);
   }
 }
 
@@ -194,8 +214,12 @@ static void MX_53L7A1_MultiSensorRanging_Process(void)
 
       if (status == BSP_ERROR_NONE)
       {
-        printf("%s\n", TofDevStr[i]);
-        print_result(&Result);
+//        printf("%s\n", TofDevStr[i]);
+//        print_result(&Result);
+
+//        display_result(i, &Result);
+//    	  display_result_cells(i, &Result);
+    	  obstacle_avoidance(i, &Result);
         HAL_Delay(POLLING_PERIOD);
       }
     }
@@ -289,6 +313,121 @@ static void print_result(RANGING_SENSOR_Result_t *Result)
   printf("\n");
 }
 
+static void display_result(uint8_t device, RANGING_SENSOR_Result_t *Result)
+{
+	long tmp = 0;
+	char buffer[6];
+
+	// Average result
+	for(int i = 0; i < Result->NumberOfZones; i++)
+	{
+		tmp += Result->ZoneResult[i].Distance[0];
+	}
+	tmp /= Result->NumberOfZones;
+
+	// Display result
+	ssd1306_SetCursor((device == 0) ? 0 : 64, 0);
+	sprintf(buffer, "%4ld", tmp);
+	ssd1306_WriteString(buffer, Font_11x18, White);
+	ssd1306_UpdateScreen();
+}
+
+static void display_result_cells(uint8_t device, RANGING_SENSOR_Result_t *Result)
+{
+	for(int i = 0; i < Result->NumberOfZones; i++)
+	{
+		// Fill in cell based on distance
+		// << 2 multiplies by 4 to scale 0-16 range to 0-64
+		// >> 2 and % 4 operations map 1D 0-16 to 2D X and Y values 0-4
+		// 112 -  and 48 - flip axes for sensor orientation; will need to change/remove these based on orientation
+		uint8_t x_tmp = 112 - (((i >> 2) << 4) + ((device == 0) ? 64 : 0));
+		uint8_t y_tmp = 48 - ((i % 4) << 4);
+
+		if(Result->ZoneResult[i].Status[0] == 0)
+		{
+			display_cell(x_tmp, y_tmp, Result->ZoneResult[i].Distance[0]);
+		}
+	}
+
+	ssd1306_UpdateScreen();
+}
+
+// Helper function for display_result_pixels that fills in a square on the display based on the distance provided
+// x and y are the coordinates of the top left corner of the cell
+// distance is the distance in millimeters measured by that zone of the TOF sensor
+static void display_cell(uint8_t x, uint8_t y, long distance)
+{
+	// Scale and offset values to expected range
+	int16_t pixelsToFill = 256 - (distance >> 3);
+
+	// Clear old cell
+	ssd1306_FillRectangle(x, y, x + 15, y + 15, Black);
+
+	// Fill pixels from top left to bottom right of current cell
+	for(uint8_t j = y; j < y + 16; j++)
+	{
+		for(uint8_t i = x; i < x + 16; i++)
+		{
+			if(pixelsToFill <= 0)
+			{
+				return;
+			}
+
+			pixelsToFill--;
+
+			ssd1306_DrawPixel(i, j, White);
+		}
+	}
+}
+
+static void obstacle_avoidance(uint8_t device, RANGING_SENSOR_Result_t *Result)
+{
+	static uint16_t leftAverage = 0;
+	static uint16_t rightAverage = 0;
+	float sum = 0;
+	float rightFraction = 0.0f;
+
+	long tmp = 0;
+
+	// Average result
+	for(int i = 0; i < Result->NumberOfZones; i++)
+	{
+		tmp += Result->ZoneResult[i].Distance[0];
+	}
+	tmp /= Result->NumberOfZones;
+
+	switch(device)
+	{
+		case 0:
+			leftAverage = tmp;
+			break;
+		case 1:
+			rightAverage = tmp;
+			break;
+	}
+
+	// Sum averages
+	sum = leftAverage + rightAverage;
+	// Compute percentage of right side
+	rightFraction = ((float) rightAverage) / sum;
+
+	// Map percentage to turning angle and assign to servo
+	// newValue = (-1 if flipped, 1 if not) * oldValue * (newRange / oldRange) + newRangeOffset
+	// Normally I would divide by the old range (100), but I need to convert the fraction to a percentage
+	// 50% is already 135 degrees, so we don't need an offset
+//	TIM3->CCR1 = degreesToPWM(rightFraction * 270.0f);
+	// Turn towards obstacle
+//	targetTurningAnglePWM = degreesToPWM(turningAngleOffset + rightFraction * 270.0f);
+	// Turn away from obstacle
+	targetTurningAnglePWM = degreesToPWM(turningAngleOffset + (1.0f - rightFraction) * 270.0f);
+
+//	printf("%d percent (%ld PWM) %ld target\n", (int)(rightFraction * 100), TIM3->CCR1, targetTurningAnglePWM);
+
+	//TODO: Add safeguards against weird numerical shit
+
+//	printf("%d %d\n", leftAverage, rightAverage);
+}
+
 static void write_lowpower_pin(uint8_t device, GPIO_PinState pin_state)
 {
   switch (device)
@@ -331,6 +470,22 @@ static void reset_all_sensors(void)
   HAL_GPIO_WritePin(VL53L7A1_LPn_L_PORT, VL53L7A1_LPn_L_PIN, GPIO_PIN_SET);
   HAL_GPIO_WritePin(VL53L7A1_LPn_R_PORT, VL53L7A1_LPn_R_PIN, GPIO_PIN_SET);
   HAL_Delay(2);
+}
+
+uint32_t degreesToPWM(float degrees)
+{
+	// Validate range
+	if(degrees < 0 || degrees > 270)
+	{
+		// Home motor if angle is out of range
+		degrees = 135;
+		// Can use this as error value b/c pulse will never be this thin
+		// return 0;
+	}
+
+	// newValue = (-1 if flipped, 1 if not) * oldValue * (newRange / oldRange) + newRangeOffset
+
+	return ((float) degrees) * (2000.0f / 270.0f) + 500;
 }
 
 #ifdef __cplusplus

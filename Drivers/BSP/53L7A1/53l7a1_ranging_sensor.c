@@ -519,6 +519,26 @@ static int32_t VL53L7CX_Probe(uint32_t Instance)
   return ret;
 }
 
+int32_t VL53L7CX_SetSharpenerPercent(uint32_t Instance, uint8_t percent)
+{
+	int32_t ret;
+
+	if (Instance >= RANGING_SENSOR_INSTANCES_NBR)
+	{
+		ret = BSP_ERROR_WRONG_PARAM;
+	}
+	else if (vl53l7cx_set_sharpener_percent(&((VL53L7CX_Object_t *)(VL53L7A1_RANGING_SENSOR_CompObj[Instance]))->Dev, percent) < 0)
+	{
+		ret = BSP_ERROR_COMPONENT_FAILURE;
+	}
+	else
+	{
+		ret = BSP_ERROR_NONE;
+	}
+
+	return ret;
+}
+
 /**
   * @}
   */
