@@ -39,6 +39,7 @@ extern "C" {
 #define TIMING_BUDGET (30U) /* 5 ms < TimingBudget < 100 ms */
 #define RANGING_FREQUENCY (10U) /* Ranging frequency Hz (shall be consistent with TimingBudget value) */
 #define POLLING_PERIOD (1000U/RANGING_FREQUENCY) /* refresh rate for polling mode (milliseconds) */
+//#define USE_MG996R_TURNING_SERVO
 
 /* Private variables ---------------------------------------------------------*/
 static RANGING_SENSOR_ProfileConfig_t Profile;
@@ -472,6 +473,23 @@ static void reset_all_sensors(void)
   HAL_Delay(2);
 }
 
+#ifdef USE_MG996R_TURNING_SERVO
+uint32_t degreesToPWM(float degrees)
+{
+	// Validate range
+	if(degrees < 0 || degrees > 270)
+	{
+		// Home motor if angle is out of range
+		degrees = 90;
+		// Can use this as error value b/c pulse will never be this thin
+		// return 0;
+	}
+
+	// newValue = (-1 if flipped, 1 if not) * oldValue * (newRange / oldRange) + newRangeOffset
+
+	return ((float) degrees) * (2000.0f / 180.0f) + 500;
+}
+#else
 uint32_t degreesToPWM(float degrees)
 {
 	// Validate range
@@ -487,6 +505,7 @@ uint32_t degreesToPWM(float degrees)
 
 	return ((float) degrees) * (2000.0f / 270.0f) + 500;
 }
+#endif
 
 #ifdef __cplusplus
 }
