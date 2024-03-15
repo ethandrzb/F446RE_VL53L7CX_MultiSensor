@@ -85,6 +85,7 @@ static void MX_USART3_UART_Init(void);
 static void MX_TIM7_Init(void);
 /* USER CODE BEGIN PFP */
 bool stringToCANMessage(uint8_t *buffer, uint16_t size);
+void sendHomingSequence();
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -106,7 +107,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef* htim)
 	{
 		// Store expected response for comparison in RxFifo0Callback
 		// Expected value should be the CAN ID of the node you want to check
-		expectedHeartbeatData = (expectedHeartbeatData < 0x20) ? expectedHeartbeatData + 0x10 : 0x10;
+		expectedHeartbeatData = (expectedHeartbeatData < 0x40) ? expectedHeartbeatData + 0x10 : 0x10;
 
 		txHeader.StdId = expectedHeartbeatData;
 		txHeader.DLC = 1;
@@ -204,8 +205,66 @@ bool stringToCANMessage(uint8_t *buffer, uint16_t size)
 
 		return true;
 	}
+	else if(strncmp((char *) buffer, (char *) "HOME", 4) == 0)
+	{
+		sendHomingSequence();
+
+		return true;
+	}
 
 	return false;
+}
+
+void sendHomingSequence()
+{
+	// Step 1
+	// RV up, RH forward, RV home, LV up, LH forward, LV home
+	uint8_t step1ServoNumber[] = {1, 0, 1, 3, 2, 3};
+	uint8_t step1ServoAngle[] = {158, 158, 135, 158, 158, 135};
+
+	// Step 2
+	// RV up, RH home, RV home, LV up, LH home, LV home
+	uint8_t step2ServoNumber[] = {1, 0, 1, 3, 2, 3};
+	uint8_t step2ServoAngle[] = {158, 135, 135, 158, 135, 135};
+
+	// Execute Step 1
+	for(uint8_t id = 0x10; id <= 0x20; id += 0x10)
+	{
+		for(uint8_t substep = 0; substep < 6; substep++)
+		{
+			txData[0] = step1ServoAngle[substep] >> 8;
+			txData[1] = step1ServoAngle[substep] & 0x00FF;
+
+			txHeader.StdId = id + step1ServoNumber[substep];
+			txHeader.RTR = CAN_RTR_DATA;
+			txHeader.DLC = 2;
+
+			HAL_CAN_AddTxMessage(&hcan1, &txHeader, txData, &txMailbox);
+
+			//TODO: Replace this delay with a timer-based delay so we can leave the ISR
+			// You should be able to poll a new timer until it advances a certain number of ticks
+			// See delay function in dht11.h
+//			HAL_Delay(substepDelayMS);
+		}
+	}
+
+	// Execute Step 2
+	for(uint8_t id = 0x10; id <= 0x20; id += 0x10)
+	{
+		for(uint8_t substep = 0; substep < 6; substep++)
+		{
+			txData[0] = step2ServoAngle[substep] >> 8;
+			txData[1] = step2ServoAngle[substep] & 0x00FF;
+
+			txHeader.StdId = id + step2ServoNumber[substep];
+			txHeader.RTR = CAN_RTR_DATA;
+			txHeader.DLC = 2;
+
+			HAL_CAN_AddTxMessage(&hcan1, &txHeader, txData, &txMailbox);
+
+//			HAL_Delay(substepDelayMS);
+		}
+	}
 }
 /* USER CODE END 0 */
 

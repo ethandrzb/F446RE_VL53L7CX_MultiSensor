@@ -204,6 +204,7 @@ static void MX_53L7A1_MultiSensorRanging_Process(void)
     }
   }
 
+  //TODO: Add extern variable to exit obstacle avoidance during homing sequence
   while (1)
   {
     /* polling mode */
@@ -420,6 +421,8 @@ static void obstacle_avoidance(uint8_t device, RANGING_SENSOR_Result_t *Result)
 	// Turn towards obstacle
 //	targetTurningAnglePWM = degreesToPWM(turningAngleOffset + rightFraction * 270.0f);
 	// Turn away from obstacle
+
+	//TODO: Add offset to home turning servo
 	targetTurningAnglePWM = degreesToPWM(turningAngleOffset + (1.0f - rightFraction) * 270.0f);
 
 //	printf("%d percent (%ld PWM) %ld target\n", (int)(rightFraction * 100), TIM3->CCR1, targetTurningAnglePWM);
