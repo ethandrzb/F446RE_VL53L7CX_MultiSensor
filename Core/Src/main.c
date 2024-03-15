@@ -250,7 +250,7 @@ void sendHomingSequence()
 	}
 
 	// Execute Step 2
-	for(uint8_t id = 0x10; id <= 0x20; id += 0x10)
+	for(uint8_t id = 0x20; id >= 0x10; id -= 0x10)
 	{
 		for(uint8_t substep = 0; substep < 6; substep++)
 		{
