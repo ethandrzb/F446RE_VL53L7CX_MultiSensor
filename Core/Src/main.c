@@ -243,6 +243,7 @@ void sendHomingSequence()
 			txHeader.DLC = 2;
 
 			HAL_CAN_AddTxMessage(&hcan1, &txHeader, txData, &txMailbox);
+			HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
 
 			delayMicroseconds(1000000);
 		}
@@ -261,9 +262,9 @@ void sendHomingSequence()
 			txHeader.DLC = 2;
 
 			HAL_CAN_AddTxMessage(&hcan1, &txHeader, txData, &txMailbox);
+			HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
 
 			delayMicroseconds(1000000);
-
 		}
 	}
 }
