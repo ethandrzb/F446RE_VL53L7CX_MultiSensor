@@ -34,7 +34,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+#define DELAY_TIMER TIM2
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -47,6 +47,7 @@ CAN_HandleTypeDef hcan1;
 
 I2C_HandleTypeDef hi2c2;
 
+TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim6;
 TIM_HandleTypeDef htim7;
@@ -83,9 +84,11 @@ static void MX_TIM3_Init(void);
 static void MX_TIM6_Init(void);
 static void MX_USART3_UART_Init(void);
 static void MX_TIM7_Init(void);
+static void MX_TIM2_Init(void);
 /* USER CODE BEGIN PFP */
 bool stringToCANMessage(uint8_t *buffer, uint16_t size);
 void sendHomingSequence();
+void delayMicroseconds(uint32_t usec);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -241,10 +244,7 @@ void sendHomingSequence()
 
 			HAL_CAN_AddTxMessage(&hcan1, &txHeader, txData, &txMailbox);
 
-			//TODO: Replace this delay with a timer-based delay so we can leave the ISR
-			// You should be able to poll a new timer until it advances a certain number of ticks
-			// See delay function in dht11.h
-//			HAL_Delay(substepDelayMS);
+			delayMicroseconds(1000000);
 		}
 	}
 
@@ -262,9 +262,16 @@ void sendHomingSequence()
 
 			HAL_CAN_AddTxMessage(&hcan1, &txHeader, txData, &txMailbox);
 
-//			HAL_Delay(substepDelayMS);
+			delayMicroseconds(1000000);
+
 		}
 	}
+}
+
+void delayMicroseconds(uint32_t usec)
+{
+	DELAY_TIMER->CNT = 0;
+	while(DELAY_TIMER->CNT < usec);
 }
 /* USER CODE END 0 */
 
@@ -302,6 +309,7 @@ int main(void)
   MX_TIM6_Init();
   MX_USART3_UART_Init();
   MX_TIM7_Init();
+  MX_TIM2_Init();
   MX_TOF_Init();
   /* USER CODE BEGIN 2 */
 
@@ -312,6 +320,8 @@ int main(void)
   HAL_TIM_Base_Start_IT(&htim6);
 
   HAL_TIM_Base_Start_IT(&htim7);
+
+  HAL_TIM_Base_Start(&htim2);
 
   HAL_CAN_Start(&hcan1);
   HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING);
@@ -469,6 +479,51 @@ static void MX_I2C2_Init(void)
   /* USER CODE BEGIN I2C2_Init 2 */
 
   /* USER CODE END I2C2_Init 2 */
+
+}
+
+/**
+  * @brief TIM2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM2_Init(void)
+{
+
+  /* USER CODE BEGIN TIM2_Init 0 */
+
+  /* USER CODE END TIM2_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM2_Init 1 */
+
+  /* USER CODE END TIM2_Init 1 */
+  htim2.Instance = TIM2;
+  htim2.Init.Prescaler = 90-1;
+  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim2.Init.Period = 4294967295;
+  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim2, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM2_Init 2 */
+
+  /* USER CODE END TIM2_Init 2 */
 
 }
 
