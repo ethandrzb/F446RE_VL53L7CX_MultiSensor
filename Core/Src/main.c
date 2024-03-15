@@ -220,12 +220,12 @@ void sendHomingSequence()
 	// Step 1
 	// RV up, RH forward, RV home, LV up, LH forward, LV home
 	uint8_t step1ServoNumber[] = {1, 0, 1, 3, 2, 3};
-	uint8_t step1ServoAngle[] = {158, 158, 135, 158, 158, 135};
+	uint8_t step1ServoAngle[] = {158, 158, 135, 112, 112, 135};
 
 	// Step 2
 	// RV up, RH home, RV home, LV up, LH home, LV home
 	uint8_t step2ServoNumber[] = {1, 0, 1, 3, 2, 3};
-	uint8_t step2ServoAngle[] = {158, 135, 135, 158, 135, 135};
+	uint8_t step2ServoAngle[] = {158, 135, 135, 112, 135, 135};
 
 	// Execute Step 1
 	for(uint8_t id = 0x10; id <= 0x20; id += 0x10)
