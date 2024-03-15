@@ -34,6 +34,10 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+#define NUM_SEGMENTS 5
+
+#define LAST_SEGMENT_BASE_CAN_ID NUM_SEGMENTS << 4
+
 #define DELAY_TIMER TIM2
 /* USER CODE END PD */
 
@@ -110,7 +114,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef* htim)
 	{
 		// Store expected response for comparison in RxFifo0Callback
 		// Expected value should be the CAN ID of the node you want to check
-		expectedHeartbeatData = (expectedHeartbeatData < 0x40) ? expectedHeartbeatData + 0x10 : 0x10;
+		expectedHeartbeatData = (expectedHeartbeatData < LAST_SEGMENT_BASE_CAN_ID) ? expectedHeartbeatData + 0x10 : 0x10;
 
 		txHeader.StdId = expectedHeartbeatData;
 		txHeader.DLC = 1;
@@ -231,7 +235,7 @@ void sendHomingSequence()
 	uint8_t step2ServoAngle[] = {158, 135, 135, 112, 135, 135};
 
 	// Execute Step 1
-	for(uint8_t id = 0x10; id <= 0x20; id += 0x10)
+	for(uint8_t id = 0x10; id <= LAST_SEGMENT_BASE_CAN_ID; id += 0x10)
 	{
 		for(uint8_t substep = 0; substep < 6; substep++)
 		{
@@ -250,7 +254,7 @@ void sendHomingSequence()
 	}
 
 	// Execute Step 2
-	for(uint8_t id = 0x20; id >= 0x10; id -= 0x10)
+	for(uint8_t id = LAST_SEGMENT_BASE_CAN_ID; id >= 0x10; id -= 0x10)
 	{
 		for(uint8_t substep = 0; substep < 6; substep++)
 		{
