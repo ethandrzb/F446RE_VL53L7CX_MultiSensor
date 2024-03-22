@@ -34,7 +34,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define NUM_SEGMENTS 5
+#define NUM_SEGMENTS 2
 
 #define LAST_SEGMENT_BASE_CAN_ID NUM_SEGMENTS << 4
 
@@ -70,7 +70,7 @@ uint32_t txMailbox;
 #define UART_RX_BUFFER_SIZE 20
 uint8_t UART_Rx_Buffer[UART_RX_BUFFER_SIZE];
 
-#define UART_RESPONSE_LENGTH 20
+#define UART_RESPONSE_LENGTH 50
 uint8_t UARTResponseString[UART_RESPONSE_LENGTH];
 
 int8_t turningAngleOffset = 0;
@@ -136,6 +136,35 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 //		HAL_GPIO_WritePin(CAN_HEARTBEAT_LED_GPIO_Port, CAN_HEARTBEAT_LED_Pin, GPIO_PIN_RESET);
 		HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
 	}
+	else if(rxHeader.DLC == 8)
+	{
+		// Classify peripheral type based on first byte
+		switch(rxData[0])
+		{
+			case PERIPHERAL_NONE:
+				sprintf((char *) UARTResponseString, "Segment %lX has no connected peripheral\n", rxHeader.StdId);
+				break;
+			case PERIPHERAL_TEMP_HUMIDITY_DHT11:
+				// Verify checksum
+				if(rxData[5] == rxData[1] + rxData[2] + rxData[3] + rxData[4])
+				{
+					// Reassemble bytes into floating point values like GetData in dht11.h
+					sprintf((char *) UARTResponseString, "Segment %lX %.1f degrees C %.1f%% humidity\n",
+							rxHeader.StdId,
+							rxData[1] + (rxData[2] / 10.0f),
+							rxData[3] + (rxData[4] / 10.0f));
+				}
+				else
+				{
+					sprintf((char *) UARTResponseString, "Segment %lX Invalid data from DHT11\n", rxHeader.StdId);
+					// TODO: Retry once or twice if the checksum is invalid
+				}
+				break;
+		}
+
+		// Send response data over serial (use existing sprintf/strcpy from example project)
+		HAL_UART_Transmit(&huart3, UARTResponseString, strlen((char *) UARTResponseString), 100);
+	}
 }
 
 void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
@@ -163,6 +192,7 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 
 bool stringToCANMessage(uint8_t *buffer, uint16_t size)
 {
+	// Set individual servo to specific angle
 	if(strncmp((char *) buffer, (char *) "SET", 3) == 0)
 	{
 		unsigned int tmpID = 0;
@@ -184,6 +214,7 @@ bool stringToCANMessage(uint8_t *buffer, uint16_t size)
 
 		return true;
 	}
+	// Control metachronal wave
 	else if(strncmp((char *) buffer, (char *) "WAVE", 4) == 0)
 	{
 		int tmpSpeed = 0;
@@ -212,6 +243,25 @@ bool stringToCANMessage(uint8_t *buffer, uint16_t size)
 
 		return true;
 	}
+	// Get peripheral/sensor data from individual segment
+	else if(strncmp((char *) buffer, (char *) "GET", 3) == 0)
+	{
+		unsigned int tmpID = 0;
+
+		if(sscanf((char *) buffer, "GET %X", &tmpID) != 1)
+		{
+			return false;
+		}
+
+		txHeader.StdId = tmpID;
+		txHeader.RTR = CAN_RTR_REMOTE;
+		txHeader.DLC = 8;
+
+		HAL_CAN_AddTxMessage(&hcan1, &txHeader, txData, &txMailbox);
+
+		return true;
+	}
+	// Trigger homing sequence
 	else if(strncmp((char *) buffer, (char *) "HOME", 4) == 0)
 	{
 		sendHomingSequence();
@@ -249,7 +299,7 @@ void sendHomingSequence()
 			HAL_CAN_AddTxMessage(&hcan1, &txHeader, txData, &txMailbox);
 			HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
 
-			delayMicroseconds(1000000);
+			delayMicroseconds(300000);
 		}
 	}
 
@@ -268,7 +318,7 @@ void sendHomingSequence()
 			HAL_CAN_AddTxMessage(&hcan1, &txHeader, txData, &txMailbox);
 			HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
 
-			delayMicroseconds(1000000);
+			delayMicroseconds(300000);
 		}
 	}
 }
