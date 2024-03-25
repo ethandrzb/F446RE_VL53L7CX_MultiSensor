@@ -34,7 +34,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define NUM_SEGMENTS 2
+#define NUM_SEGMENTS 5
 
 #define LAST_SEGMENT_BASE_CAN_ID NUM_SEGMENTS << 4
 
@@ -274,51 +274,23 @@ bool stringToCANMessage(uint8_t *buffer, uint16_t size)
 
 void sendHomingSequence()
 {
-	// Step 1
-	// RV up, RH forward, RV home, LV up, LH forward, LV home
-	uint8_t step1ServoNumber[] = {1, 0, 1, 3, 2, 3};
-	uint8_t step1ServoAngle[] = {158, 158, 135, 112, 112, 135};
+  uint8_t homePosition = 135;
 
-	// Step 2
-	// RV up, RH home, RV home, LV up, LH home, LV home
-	uint8_t step2ServoNumber[] = {1, 0, 1, 3, 2, 3};
-	uint8_t step2ServoAngle[] = {158, 135, 135, 112, 135, 135};
-
-	// Execute Step 1
 	for(uint8_t id = 0x10; id <= LAST_SEGMENT_BASE_CAN_ID; id += 0x10)
 	{
-		for(uint8_t substep = 0; substep < 6; substep++)
+		for(uint8_t servo = 0; servo <= 3; servo++)
 		{
-			txData[0] = step1ServoAngle[substep] >> 8;
-			txData[1] = step1ServoAngle[substep] & 0x00FF;
+			txData[0] = homePosition >> 8;
+			txData[1] = homePosition & 0x00FF;
 
-			txHeader.StdId = id + step1ServoNumber[substep];
+			txHeader.StdId = id + servo;
 			txHeader.RTR = CAN_RTR_DATA;
 			txHeader.DLC = 2;
 
 			HAL_CAN_AddTxMessage(&hcan1, &txHeader, txData, &txMailbox);
 			HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
 
-			delayMicroseconds(300000);
-		}
-	}
-
-	// Execute Step 2
-	for(uint8_t id = LAST_SEGMENT_BASE_CAN_ID; id >= 0x10; id -= 0x10)
-	{
-		for(uint8_t substep = 0; substep < 6; substep++)
-		{
-			txData[0] = step2ServoAngle[substep] >> 8;
-			txData[1] = step2ServoAngle[substep] & 0x00FF;
-
-			txHeader.StdId = id + step2ServoNumber[substep];
-			txHeader.RTR = CAN_RTR_DATA;
-			txHeader.DLC = 2;
-
-			HAL_CAN_AddTxMessage(&hcan1, &txHeader, txData, &txMailbox);
-			HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
-
-			delayMicroseconds(300000);
+			delayMicroseconds(100000);
 		}
 	}
 }
