@@ -39,7 +39,10 @@ extern "C" {
 #define TIMING_BUDGET (30U) /* 5 ms < TimingBudget < 100 ms */
 #define RANGING_FREQUENCY (10U) /* Ranging frequency Hz (shall be consistent with TimingBudget value) */
 #define POLLING_PERIOD (1000U/RANGING_FREQUENCY) /* refresh rate for polling mode (milliseconds) */
+
 //#define USE_MG996R_TURNING_SERVO
+
+//#define MAX_MEASURABLE_DISTANCE_MM 1500
 
 /* Private variables ---------------------------------------------------------*/
 static RANGING_SENSOR_ProfileConfig_t Profile;
@@ -218,6 +221,15 @@ static void MX_53L7A1_MultiSensorRanging_Process(void)
       {
 //        printf("%s\n", TofDevStr[i]);
 //        print_result(&Result);
+
+    	// Clip measured distances
+#ifdef MAX_MEASURABLE_DISTANCE_MM
+		for(int i = 0; i < Result.NumberOfZones; i++)
+		{
+			Result.ZoneResult[i].Distance[0] = (Result.ZoneResult[i].Distance[0] <= MAX_MEASURABLE_DISTANCE_MM)
+					? Result.ZoneResult[i].Distance[0] : MAX_MEASURABLE_DISTANCE_MM;
+		}
+#endif
 
 //        display_result(i, &Result);
 //    	  display_result_cells(i, &Result);
@@ -423,6 +435,7 @@ static void obstacle_avoidance(uint8_t device, RANGING_SENSOR_Result_t *Result)
 	// Turn away from obstacle
 
 	//TODO: Add offset to home turning servo
+	//TODO: Increase multiplier beyond 270 to make obstacle avoidance react more to obstacles further away
 	targetTurningAnglePWM = degreesToPWM(turningAngleOffset + (1.0f - rightFraction) * 270.0f);
 
 //	printf("%d percent (%ld PWM) %ld target\n", (int)(rightFraction * 100), TIM3->CCR1, targetTurningAnglePWM);
@@ -496,12 +509,13 @@ uint32_t degreesToPWM(float degrees)
 uint32_t degreesToPWM(float degrees)
 {
 	// Validate range
-	if(degrees < 0 || degrees > 270)
+	if(degrees < 0)
 	{
-		// Home motor if angle is out of range
-		degrees = 135;
-		// Can use this as error value b/c pulse will never be this thin
-		// return 0;
+		degrees = 0.0f;
+	}
+	else if(degrees > 270)
+	{
+		degrees = 270.0f;
 	}
 
 	// newValue = (-1 if flipped, 1 if not) * oldValue * (newRange / oldRange) + newRangeOffset
