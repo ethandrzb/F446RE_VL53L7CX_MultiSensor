@@ -361,6 +361,13 @@ static void display_result_cells(uint8_t device, RANGING_SENSOR_Result_t *Result
 		{
 			display_cell(x_tmp, y_tmp, Result->ZoneResult[i].Distance[0]);
 		}
+		else
+		{
+			// Display X for invalid result
+			ssd1306_FillRectangle(x_tmp, y_tmp, x_tmp + 15, y_tmp + 15, Black);
+			ssd1306_SetCursor(x_tmp + 3, y_tmp + 3);
+			ssd1306_WriteChar('X', Font_7x10, White);
+		}
 	}
 
 	ssd1306_UpdateScreen();
@@ -434,9 +441,10 @@ static void obstacle_avoidance(uint8_t device, RANGING_SENSOR_Result_t *Result)
 //	targetTurningAnglePWM = degreesToPWM(turningAngleOffset + rightFraction * 270.0f);
 	// Turn away from obstacle
 
-	//TODO: Add offset to home turning servo
-	//TODO: Increase multiplier beyond 270 to make obstacle avoidance react more to obstacles further away
 	targetTurningAnglePWM = degreesToPWM(turningAngleOffset + (1.0f - rightFraction) * 270.0f);
+
+  // Exaggerated range for demo
+  // targetTurningAnglePWM = degreesToPWM(turningAngleOffset + (1.0f - rightFraction - 0.25f) * 540.0f);
 
 //	printf("%d percent (%ld PWM) %ld target\n", (int)(rightFraction * 100), TIM3->CCR1, targetTurningAnglePWM);
 
