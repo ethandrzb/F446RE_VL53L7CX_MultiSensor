@@ -121,6 +121,8 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef* htim)
 		txHeader.RTR = CAN_RTR_REMOTE;
 
 		HAL_CAN_AddTxMessage(&hcan1, &txHeader, txData, &txMailbox);
+
+		HAL_GPIO_WritePin(HEARTBEAT_LED_GPIO_Port, HEARTBEAT_LED_Pin, GPIO_PIN_SET);
 	}
 }
 
@@ -133,8 +135,7 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 	if((rxHeader.DLC == 1) && (rxData[0] == expectedHeartbeatData))
 	{
 		// Heart beat received if data matches expected value
-//		HAL_GPIO_WritePin(CAN_HEARTBEAT_LED_GPIO_Port, CAN_HEARTBEAT_LED_Pin, GPIO_PIN_RESET);
-		HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
+		HAL_GPIO_WritePin(HEARTBEAT_LED_GPIO_Port, HEARTBEAT_LED_Pin, GPIO_PIN_RESET);
 	}
 	else if(rxHeader.DLC == 8)
 	{
@@ -740,7 +741,7 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(PWR_EN_L_GPIO_Port, PWR_EN_L_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOC, PWR_EN_L_Pin|HEARTBEAT_LED_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOA, TOF_PWN_EN_R_Pin|TOF_LPn_R_Pin|LED2_Pin|TOF_I2C_RST_L_Pin
@@ -749,12 +750,12 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(TOF_I2C_RST_R_GPIO_Port, TOF_I2C_RST_R_Pin, GPIO_PIN_RESET);
 
-  /*Configure GPIO pin : PWR_EN_L_Pin */
-  GPIO_InitStruct.Pin = PWR_EN_L_Pin;
+  /*Configure GPIO pins : PWR_EN_L_Pin HEARTBEAT_LED_Pin */
+  GPIO_InitStruct.Pin = PWR_EN_L_Pin|HEARTBEAT_LED_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(PWR_EN_L_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
   /*Configure GPIO pin : TOF_INT_R_Pin */
   GPIO_InitStruct.Pin = TOF_INT_R_Pin;

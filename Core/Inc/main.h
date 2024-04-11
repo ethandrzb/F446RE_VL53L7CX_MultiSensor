@@ -68,6 +68,8 @@ void Error_Handler(void);
 /* Private defines -----------------------------------------------------------*/
 #define PWR_EN_L_Pin GPIO_PIN_2
 #define PWR_EN_L_GPIO_Port GPIOC
+#define HEARTBEAT_LED_Pin GPIO_PIN_3
+#define HEARTBEAT_LED_GPIO_Port GPIOC
 #define TOF_INT_R_Pin GPIO_PIN_0
 #define TOF_INT_R_GPIO_Port GPIOA
 #define TOF_INT_R_EXTI_IRQn EXTI0_IRQn
