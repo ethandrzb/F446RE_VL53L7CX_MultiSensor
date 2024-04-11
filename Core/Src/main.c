@@ -73,7 +73,7 @@ uint8_t UART_Rx_Buffer[UART_RX_BUFFER_SIZE];
 #define UART_RESPONSE_LENGTH 50
 uint8_t UARTResponseString[UART_RESPONSE_LENGTH];
 
-int8_t turningAngleOffset = 0;
+int8_t turningAngleOffset = 0; // Was set to 15 for some reason
 uint32_t targetTurningAnglePWM = 1500;
 
 uint8_t expectedHeartbeatData = 0;
@@ -159,6 +159,17 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 					sprintf((char *) UARTResponseString, "Segment %lX Invalid data from DHT11\n", rxHeader.StdId);
 					// TODO: Retry once or twice if the checksum is invalid
 				}
+				break;
+			case PERIPHERAL_TEMP_PRESSURE_ALTITUDE_BMP180:
+				// TODO: Report temperature and altitude from BMP180
+				// Maybe add a byte between the sensor type and reported value to indicate
+					// which value from the sensor is being reported
+				// See matching TODO in G431_PWM_Servo_CAN
+				float tmpPressure = 0.0;
+				memcpy(&tmpPressure, &(rxData[1]), sizeof(float));
+
+				sprintf((char *) UARTResponseString, "Segment %lX %.2f pa\n", rxHeader.StdId, tmpPressure);
+
 				break;
 		}
 
