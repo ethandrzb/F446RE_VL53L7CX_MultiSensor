@@ -247,7 +247,7 @@ bool stringToCANMessage(uint8_t *buffer, uint16_t size)
 
 		txData[0] = tmpSpeed;
 
-		txHeader.StdId = 0xFF;
+		txHeader.StdId = 0x7F0;
 		txHeader.RTR = CAN_RTR_DATA;
 		txHeader.DLC = 1;
 
@@ -288,22 +288,19 @@ void sendHomingSequence()
 {
   uint8_t homePosition = 135;
 
-	for(uint8_t id = 0x10; id <= LAST_SEGMENT_BASE_CAN_ID; id += 0x10)
+	for(uint8_t servo = 0; servo <= 3; servo++)
 	{
-		for(uint8_t servo = 0; servo <= 3; servo++)
-		{
-			txData[0] = homePosition >> 8;
-			txData[1] = homePosition & 0x00FF;
+		txData[0] = homePosition >> 8;
+		txData[1] = homePosition & 0x00FF;
 
-			txHeader.StdId = id + servo;
-			txHeader.RTR = CAN_RTR_DATA;
-			txHeader.DLC = 2;
+		txHeader.StdId = 0x7F0 + servo;
+		txHeader.RTR = CAN_RTR_DATA;
+		txHeader.DLC = 2;
 
-			HAL_CAN_AddTxMessage(&hcan1, &txHeader, txData, &txMailbox);
-			HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
+		HAL_CAN_AddTxMessage(&hcan1, &txHeader, txData, &txMailbox);
+		HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
 
-			delayMicroseconds(100000);
-		}
+		delayMicroseconds(50000);
 	}
 }
 
