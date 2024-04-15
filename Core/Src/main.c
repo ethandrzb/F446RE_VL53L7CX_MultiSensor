@@ -105,13 +105,13 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef* htim)
 {
 	if(htim->Instance == TIM6)
 	{
-		if(TIM3->CCR1 > targetTurningAnglePWM)
+		if(TIM3->CCR2 > targetTurningAnglePWM)
 		{
-			TIM3->CCR1--;
+			TIM3->CCR2--;
 		}
-		else if(TIM3->CCR1 < targetTurningAnglePWM)
+		else if(TIM3->CCR2 < targetTurningAnglePWM)
 		{
-			TIM3->CCR1++;
+			TIM3->CCR2++;
 		}
 	}
 	else if(htim->Instance == TIM7)
@@ -202,6 +202,11 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
 	HAL_UART_Transmit_IT(huart, UARTResponseString, strlen((char *) UARTResponseString));
 #else
 	stringToCANMessage(UART_Rx_Buffer, Size);
+
+	if(!commandInProgress)
+	{
+		HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_RESET);
+	}
 
 	HAL_UARTEx_ReceiveToIdle_IT(huart, UART_Rx_Buffer, UART_RX_BUFFER_SIZE);
 #endif
@@ -369,8 +374,10 @@ int main(void)
   /* USER CODE BEGIN 2 */
 
   // Initialize turning servo to 135 degrees
-  TIM3->CCR1 = 1500;
-  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
+  TIM3->CCR2 = 1500;
+//  TIM3->CCR2 = degreesToPWM(135 + turningAngleOffset);
+//  targetTurningAnglePWM = degreesToPWM(135 + turningAngleOffset);
+  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2);
 
   HAL_TIM_Base_Start_IT(&htim6);
 
@@ -620,7 +627,7 @@ static void MX_TIM3_Init(void)
   sConfigOC.Pulse = 0;
   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
-  if (HAL_TIM_PWM_ConfigChannel(&htim3, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
+  if (HAL_TIM_PWM_ConfigChannel(&htim3, &sConfigOC, TIM_CHANNEL_2) != HAL_OK)
   {
     Error_Handler();
   }
