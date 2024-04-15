@@ -39,6 +39,8 @@
 #define LAST_SEGMENT_BASE_CAN_ID NUM_SEGMENTS << 4
 
 #define DELAY_TIMER TIM2
+
+//#define BLUETOOTH_VERBOSE
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -77,6 +79,8 @@ int8_t turningAngleOffset = 0; // Was set to 15 for some reason
 uint32_t targetTurningAnglePWM = 1500;
 
 uint8_t expectedHeartbeatData = 0;
+
+bool commandInProgress = false;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -143,21 +147,21 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 		switch(rxData[0])
 		{
 			case PERIPHERAL_NONE:
-				sprintf((char *) UARTResponseString, "Segment %lX has no connected peripheral\n", rxHeader.StdId);
+				sprintf((char *) UARTResponseString, "S%lX 0\n", rxHeader.StdId);
 				break;
 			case PERIPHERAL_TEMP_HUMIDITY_DHT11:
 				// Verify checksum
 				if(rxData[5] == rxData[1] + rxData[2] + rxData[3] + rxData[4])
 				{
 					// Reassemble bytes into floating point values like GetData in dht11.h
-					sprintf((char *) UARTResponseString, "Segment %lX %.1f degrees C %.1f%% humidity\n",
+					sprintf((char *) UARTResponseString, "S%lX 1 %.1f %.1f\n",
 							rxHeader.StdId,
 							rxData[1] + (rxData[2] / 10.0f),
 							rxData[3] + (rxData[4] / 10.0f));
 				}
 				else
 				{
-					sprintf((char *) UARTResponseString, "Segment %lX Invalid data from DHT11\n", rxHeader.StdId);
+					sprintf((char *) UARTResponseString, "S%lX 1 Invalid data\n", rxHeader.StdId);
 					// TODO: Retry once or twice if the checksum is invalid
 				}
 				break;
@@ -166,16 +170,18 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 				// Maybe add a byte between the sensor type and reported value to indicate
 					// which value from the sensor is being reported
 				// See matching TODO in G431_PWM_Servo_CAN
-				float tmpPressure = 0.0;
-				memcpy(&tmpPressure, &(rxData[1]), sizeof(float));
+				uint32_t tmpPressure = 0.0;
+				memcpy(&tmpPressure, &(rxData[1]), sizeof(uint32_t));
 
-				sprintf((char *) UARTResponseString, "Segment %lX %.2f pa\n", rxHeader.StdId, tmpPressure);
+				sprintf((char *) UARTResponseString, "S%lX 2 %ld\n", rxHeader.StdId, tmpPressure);
 
 				break;
 		}
 
+		commandInProgress = false;
+
 		// Send response data over serial (use existing sprintf/strcpy from example project)
-		HAL_UART_Transmit(&huart3, UARTResponseString, strlen((char *) UARTResponseString), 100);
+		HAL_UART_Transmit_IT(&huart3, UARTResponseString, strlen((char *) UARTResponseString));
 	}
 }
 
@@ -183,6 +189,7 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
 {
 	HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_SET);
 
+#ifdef BLUETOOTH_VERBOSE
 	if(stringToCANMessage(UART_Rx_Buffer, Size))
 	{
 		strcpy((char *) UARTResponseString, "OK\n");
@@ -193,13 +200,23 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
 	}
 
 	HAL_UART_Transmit_IT(huart, UARTResponseString, strlen((char *) UARTResponseString));
+#else
+	stringToCANMessage(UART_Rx_Buffer, Size);
+
+	HAL_UARTEx_ReceiveToIdle_IT(huart, UART_Rx_Buffer, UART_RX_BUFFER_SIZE);
+#endif
 }
 
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 {
-	HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_RESET);
+	if(!commandInProgress)
+	{
+		HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_RESET);
+	}
 
+#ifdef BLUETOOTH_VERBOSE
 	HAL_UARTEx_ReceiveToIdle_IT(huart, UART_Rx_Buffer, UART_RX_BUFFER_SIZE);
+#endif
 }
 
 bool stringToCANMessage(uint8_t *buffer, uint16_t size)
@@ -270,6 +287,8 @@ bool stringToCANMessage(uint8_t *buffer, uint16_t size)
 		txHeader.DLC = 8;
 
 		HAL_CAN_AddTxMessage(&hcan1, &txHeader, txData, &txMailbox);
+
+		commandInProgress = true;
 
 		return true;
 	}
