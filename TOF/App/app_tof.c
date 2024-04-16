@@ -42,7 +42,7 @@ extern "C" {
 
 //#define USE_MG996R_TURNING_SERVO
 
-//#define MAX_MEASURABLE_DISTANCE_MM 1500
+//#define MAX_MEASURABLE_DISTANCE_MM 1000
 
 /* Private variables ---------------------------------------------------------*/
 static RANGING_SENSOR_ProfileConfig_t Profile;
@@ -52,6 +52,11 @@ static uint8_t ToF_Present[RANGING_SENSOR_INSTANCES_NBR] = {0};
 volatile uint8_t ToF_EventDetected = 0;
 extern uint32_t targetTurningAnglePWM;
 extern int8_t turningAngleOffset;
+
+extern CAN_HandleTypeDef hcan1;
+extern CAN_TxHeaderTypeDef txHeader;
+extern uint8_t txData[8];
+extern uint32_t txMailbox;
 
 static const char *TofDevStr[] =
 {
@@ -410,10 +415,21 @@ static void obstacle_avoidance(uint8_t device, RANGING_SENSOR_Result_t *Result)
 
 	long tmp = 0;
 
+	static uint16_t leftClose = 0;
+	static uint16_t rightClose = 0;
+	static uint8_t leftCloseTime = 0;
+	static uint8_t rightCloseTime = 0;
+	uint16_t tmpClose = 0;
+
 	// Average result
 	for(int i = 0; i < Result->NumberOfZones; i++)
 	{
 		tmp += Result->ZoneResult[i].Distance[0];
+
+		if(Result->ZoneResult[i].Distance[0] < 1000)
+		{
+			tmpClose++;
+		}
 	}
 	tmp /= Result->NumberOfZones;
 
@@ -421,9 +437,27 @@ static void obstacle_avoidance(uint8_t device, RANGING_SENSOR_Result_t *Result)
 	{
 		case 0:
 			leftAverage = tmp;
+			leftClose = tmpClose;
+			if(leftClose > 10)
+			{
+				leftCloseTime++;
+			}
+			else
+			{
+				leftCloseTime = 0;
+			}
 			break;
 		case 1:
 			rightAverage = tmp;
+			rightClose = tmpClose;
+			if(rightClose > 10)
+			{
+				rightCloseTime++;
+			}
+			else
+			{
+				rightCloseTime = 0;
+			}
 			break;
 	}
 
@@ -441,7 +475,21 @@ static void obstacle_avoidance(uint8_t device, RANGING_SENSOR_Result_t *Result)
 //	targetTurningAnglePWM = degreesToPWM(turningAngleOffset + rightFraction * 270.0f);
 	// Turn away from obstacle
 
-	targetTurningAnglePWM = degreesToPWM(turningAngleOffset + (1.0f - rightFraction) * 270.0f);
+	// JP suggested this range
+	targetTurningAnglePWM = degreesToPWM(turningAngleOffset + 127.0f + (1.0f - rightFraction) * 8.0f);
+
+	// Send stop command when obstacle is detected
+	// Will likely need to look at raw data to ignore zones pointed at the floor
+	if((leftCloseTime >= 5) || (rightCloseTime >= 5))
+	{
+		txData[0] = 0;
+
+		txHeader.StdId = 0x7F0;
+		txHeader.RTR = CAN_RTR_DATA;
+		txHeader.DLC = 1;
+
+		HAL_CAN_AddTxMessage(&hcan1, &txHeader, txData, &txMailbox);
+	}
 
   // Exaggerated range for demo
   // targetTurningAnglePWM = degreesToPWM(turningAngleOffset + (1.0f - rightFraction - 0.25f) * 540.0f);
