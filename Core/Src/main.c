@@ -96,6 +96,7 @@ static void MX_TIM2_Init(void);
 /* USER CODE BEGIN PFP */
 bool stringToCANMessage(uint8_t *buffer, uint16_t size);
 void sendHomingSequence();
+void sendSitSequence();
 void delayMicroseconds(uint32_t usec);
 /* USER CODE END PFP */
 
@@ -304,6 +305,13 @@ bool stringToCANMessage(uint8_t *buffer, uint16_t size)
 
 		return true;
 	}
+	// Trigger sit down sequence
+	else if(strncmp((char *) buffer, (char *) "SIT", 3) == 0)
+	{
+		sendSitSequence();
+
+		return true;
+	}
 
 	return false;
 }
@@ -326,6 +334,31 @@ void sendHomingSequence()
 
 		delayMicroseconds(50000);
 	}
+}
+
+void sendSitSequence()
+{
+	// Set right vertical servos to resting position
+	txData[0] = 70 >> 8;
+	txData[1] = 70 & 0x00FF;
+
+	txHeader.StdId = 0x7F1;
+	txHeader.RTR = CAN_RTR_DATA;
+	txHeader.DLC = 2;
+
+	HAL_CAN_AddTxMessage(&hcan1, &txHeader, txData, &txMailbox);
+	HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
+
+	// Set left vertical servos to resting position
+	txData[0] = 200 >> 8;
+	txData[1] = 200 & 0x00FF;
+
+	txHeader.StdId = 0x7F3;
+	txHeader.RTR = CAN_RTR_DATA;
+	txHeader.DLC = 2;
+
+	HAL_CAN_AddTxMessage(&hcan1, &txHeader, txData, &txMailbox);
+	HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
 }
 
 void delayMicroseconds(uint32_t usec)
