@@ -157,8 +157,8 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 					// Reassemble bytes into floating point values like GetData in dht11.h
 					sprintf((char *) UARTResponseString, "S%lX 1 %.1f %.1f\n",
 							rxHeader.StdId,
-							rxData[1] + (rxData[2] / 10.0f),
-							rxData[3] + (rxData[4] / 10.0f));
+							rxData[3] + (rxData[4] / 10.0f),
+							rxData[1] + (rxData[2] / 10.0f));
 				}
 				else
 				{
